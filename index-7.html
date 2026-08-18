@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
+<title>יומן קופה</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700;900&family=Roboto+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#FBF3EF;
+    --paper-dark:#F3E1DA;
+    --ink:#4A3B3B;
+    --ink-soft:#9B8180;
+    --line:#EAD3CC;
+    --green:#C97B84;
+    --green-soft:#F7E5E5;
+    --red:#7A9285;
+    --red-soft:#E9EFE9;
+    --gold:#C9A66B;
+    --white:#FFFBF8;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  body{margin:0;padding:0;}
+  html,body{
+    font-family:'Heebo',sans-serif;
+    background:var(--paper);
+    color:var(--ink);
+    min-height:100vh;
+  }
+  .mono{font-family:'Roboto Mono',monospace;}
+
+  /* ===== LOCK SCREEN ===== */
+  #lockScreen{
+    position:fixed;inset:0;background:var(--ink);
+    display:flex;align-items:center;justify-content:center;
+    flex-direction:column;z-index:999;padding:24px;
+  }
+  #lockScreen .lock-card{
+    background:var(--paper);border-radius:18px;padding:36px 28px;
+    width:100%;max-width:340px;text-align:center;
+    box-shadow:0 20px 60px rgba(0,0,0,.4);
+  }
+  #lockScreen h1{
+    font-size:20px;margin:0 0 4px;font-weight:900;letter-spacing:.5px;
+  }
+  #lockScreen p{color:var(--ink-soft);font-size:13px;margin:0 0 22px;}
+  #lockScreen input{
+    width:100%;padding:14px;border-radius:10px;border:1.5px solid var(--line);
+    font-size:16px;text-align:center;background:var(--white);color:var(--ink);
+    font-family:'Roboto Mono',monospace;letter-spacing:2px;
+  }
+  #lockScreen input:focus{outline:none;border-color:var(--green);}
+  #lockScreen button{
+    width:100%;margin-top:14px;padding:14px;border:none;border-radius:10px;
+    background:var(--green);color:var(--white);font-size:15px;font-weight:700;
+    font-family:'Heebo',sans-serif;cursor:pointer;
+  }
+  #lockError{color:var(--red);font-size:12px;margin-top:10px;height:14px;}
+
+  /* ===== APP ===== */
+  #app{display:none;max-width:520px;margin:0 auto;padding-bottom:100px;min-height:100vh;}
+
+  header.top{
+    padding:22px 20px 26px;text-align:center;position:relative;
+  }
+  header.top .eyebrow{
+    font-size:11px;letter-spacing:3px;color:var(--ink-soft);
+    text-transform:uppercase;font-weight:700;margin-bottom:6px;
+  }
+  .balance-figure{
+    font-family:'Roboto Mono',monospace;font-weight:700;
+    font-size:52px;line-height:1;color:var(--ink);
+    display:flex;align-items:baseline;justify-content:center;gap:6px;
+    direction:ltr;
+  }
+  .balance-figure .cur{font-size:26px;color:var(--gold);}
+  .balance-sub{font-size:12px;color:var(--ink-soft);margin-top:8px;}
+  .reset-btn{
+    position:absolute;top:20px;left:16px;background:none;border:none;
+    color:var(--ink-soft);font-size:11px;cursor:pointer;text-decoration:underline;
+    font-family:'Heebo',sans-serif;
+  }
+
+  .actions{
+    display:flex;gap:12px;padding:0 20px 22px;
+  }
+  .action-btn{
+    flex:1;border:none;border-radius:16px;padding:18px 10px;
+    font-family:'Heebo',sans-serif;font-weight:700;font-size:16px;
+    cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px;
+    transition:transform .1s;
+  }
+  .action-btn:active{transform:scale(.96);}
+  .action-btn.in{background:var(--green);color:var(--white);}
+  .action-btn.out{background:var(--white);color:var(--red);border:1.5px solid var(--red-soft);box-shadow:inset 0 0 0 1px var(--red-soft);}
+  .action-btn .icon{font-size:22px;}
+
+  .ledger-header{
+    padding:0 20px 10px;display:flex;justify-content:space-between;align-items:center;
+  }
+  .ledger-header h2{font-size:14px;margin:0;font-weight:700;color:var(--ink-soft);letter-spacing:.5px;}
+  .ledger-header .count{font-size:12px;color:var(--ink-soft);}
+
+  .ledger{
+    margin:0 14px;background:var(--white);border-radius:16px;
+    box-shadow:0 1px 3px rgba(0,0,0,.05);overflow:hidden;
+  }
+  .empty-state{
+    padding:50px 24px;text-align:center;color:var(--ink-soft);
+  }
+  .empty-state .big{font-size:34px;margin-bottom:10px;}
+  .empty-state p{font-size:13px;margin:0;line-height:1.6;}
+
+  .tx-row{
+    display:flex;align-items:center;gap:12px;padding:14px 16px;
+    border-bottom:1px solid var(--paper-dark);position:relative;
+  }
+  .tx-row:last-child{border-bottom:none;}
+  .tx-dot{
+    width:34px;height:34px;border-radius:50%;display:flex;align-items:center;
+    justify-content:center;font-size:15px;flex-shrink:0;
+  }
+  .tx-dot.in{background:var(--green-soft);color:var(--green);}
+  .tx-dot.out{background:var(--red-soft);color:var(--red);}
+  .tx-info{flex:1;min-width:0;}
+  .tx-note{font-size:14px;font-weight:500;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .tx-date{font-size:11.5px;color:var(--ink-soft);margin-top:2px;}
+  .tx-amount{font-family:'Roboto Mono',monospace;font-weight:700;font-size:15px;direction:ltr;flex-shrink:0;}
+  .tx-amount.in{color:var(--green);}
+  .tx-amount.out{color:var(--red);}
+  .tx-del{
+    background:none;border:none;color:var(--ink-soft);font-size:16px;cursor:pointer;
+    padding:4px 2px;flex-shrink:0;opacity:.5;
+  }
+
+  /* ===== MODAL ===== */
+  .overlay{
+    position:fixed;inset:0;background:rgba(34,41,31,.55);z-index:500;
+    display:none;align-items:flex-end;justify-content:center;
+  }
+  .overlay.show{display:flex;}
+  .sheet{
+    background:var(--paper);width:100%;max-width:520px;border-radius:22px 22px 0 0;
+    padding:24px 22px calc(24px + env(safe-area-inset-bottom));
+    animation:slideUp .25s ease-out;
+  }
+  @keyframes slideUp{from{transform:translateY(30px);opacity:0;}to{transform:translateY(0);opacity:1;}}
+  .sheet-handle{width:36px;height:4px;background:var(--line);border-radius:2px;margin:0 auto 18px;}
+  .sheet h3{margin:0 0 18px;font-size:17px;font-weight:900;text-align:center;}
+  .sheet h3.in{color:var(--green);}
+  .sheet h3.out{color:var(--red);}
+  .field{margin-bottom:14px;}
+  .field label{display:block;font-size:12px;color:var(--ink-soft);margin-bottom:6px;font-weight:500;}
+  .field input{
+    width:100%;padding:14px;border-radius:12px;border:1.5px solid var(--line);
+    font-size:16px;background:var(--white);color:var(--ink);font-family:'Heebo',sans-serif;
+  }
+  .field input.amount-input{
+    font-family:'Roboto Mono',monospace;font-size:24px;font-weight:700;text-align:center;direction:ltr;
+  }
+  .field input:focus{outline:none;border-color:var(--gold);}
+  .quick-amounts{display:flex;gap:8px;margin-bottom:16px;}
+  .quick-amounts button{
+    flex:1;padding:9px 4px;border-radius:10px;border:1.5px solid var(--line);
+    background:var(--white);font-family:'Roboto Mono',monospace;font-size:13px;
+    color:var(--ink-soft);cursor:pointer;
+  }
+  .sheet-actions{display:flex;gap:10px;}
+  .sheet-actions button{
+    flex:1;padding:15px;border-radius:12px;border:none;font-size:15px;font-weight:700;
+    font-family:'Heebo',sans-serif;cursor:pointer;
+  }
+  .btn-cancel{background:var(--paper-dark);color:var(--ink-soft);}
+  .btn-confirm.in{background:var(--green);color:var(--white);}
+  .btn-confirm.out{background:var(--red);color:var(--white);}
+
+  #buildTag{
+    text-align:center;font-size:10px;color:var(--line);padding:14px 0 4px;
+  }
+</style>
+</head>
+<body>
+
+<div id="lockScreen">
+  <div class="lock-card">
+    <h1>יומן קופה 🔒</h1>
+    <p>הזן סיסמה כדי להיכנס</p>
+    <input type="password" id="pwInput" placeholder="••••••••" autocomplete="off">
+    <button onclick="tryLogin()">כניסה</button>
+    <div id="lockError"></div>
+  </div>
+</div>
+
+<div id="app">
+  <header class="top">
+    <button class="reset-btn" onclick="confirmResetAll()">איפוס נתונים</button>
+    <div class="eyebrow">יתרת מזומן נוכחית</div>
+    <div class="balance-figure"><span class="cur">₪</span><span id="balanceNum">0</span></div>
+    <div class="balance-sub" id="balanceSub">אין עדיין תנועות</div>
+  </header>
+
+  <div class="actions">
+    <button class="action-btn in" onclick="openSheet('in')">
+      <span class="icon">↓</span>
+      <span>קיבלתי מזומן</span>
+    </button>
+    <button class="action-btn out" onclick="openSheet('out')">
+      <span class="icon">↑</span>
+      <span>שילמתי / הוצאתי</span>
+    </button>
+  </div>
+
+  <div class="ledger-header">
+    <h2>תנועות אחרונות</h2>
+    <span class="count" id="txCount"></span>
+  </div>
+
+  <div class="ledger" id="ledger">
+    <div class="empty-state">
+      <div class="big">📒</div>
+      <p>עדיין אין תנועות רשומות.<br>הוסף קבלה או הוצאה כדי להתחיל.</p>
+    </div>
+  </div>
+
+  <div id="buildTag">יומן קופה · גרסה 1.0</div>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <h3 id="sheetTitle">קיבלתי מזומן</h3>
+    <div class="field">
+      <label>סכום (₪)</label>
+      <input type="number" inputmode="decimal" id="amountInput" class="amount-input" placeholder="0">
+    </div>
+    <div class="quick-amounts" id="quickAmounts"></div>
+    <div class="field">
+      <label>הערה (לא חובה)</label>
+      <input type="text" id="noteInput" placeholder="לדוגמה: מטופל / ציוד / שכר דירה">
+    </div>
+    <div class="sheet-actions">
+      <button class="btn-cancel" onclick="closeSheet()">ביטול</button>
+      <button class="btn-confirm" id="confirmBtn" onclick="submitTx()">שמור</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const PASSWORD = "orthoerez555";
+const STORAGE_KEY = "cashLedger_transactions_v1";
+const AUTH_KEY = "cashLedger_auth_v1";
+let currentType = "in";
+
+// ---------- AUTH ----------
+function tryLogin(){
+  const val = document.getElementById('pwInput').value;
+  if(val === PASSWORD){
+    sessionStorage.setItem(AUTH_KEY, "1");
+    showApp();
+  } else {
+    document.getElementById('lockError').textContent = "סיסמה שגויה";
+    document.getElementById('pwInput').value = "";
+  }
+}
+document.getElementById('pwInput').addEventListener('keydown', e=>{
+  if(e.key === 'Enter') tryLogin();
+});
+function showApp(){
+  document.getElementById('lockScreen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  render();
+}
+if(sessionStorage.getItem(AUTH_KEY) === "1"){ showApp(); }
+
+// ---------- DATA ----------
+function getTx(){
+  try{ return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
+  catch(e){ return []; }
+}
+function saveTx(list){
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+}
+
+function formatMoney(n){
+  return Math.abs(n).toLocaleString('he-IL', {maximumFractionDigits:2, minimumFractionDigits: (n%1!==0)?2:0});
+}
+function formatDate(iso){
+  const d = new Date(iso);
+  const today = new Date();
+  const isToday = d.toDateString() === today.toDateString();
+  const yest = new Date(today); yest.setDate(yest.getDate()-1);
+  const isYest = d.toDateString() === yest.toDateString();
+  const time = d.toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'});
+  if(isToday) return `היום · ${time}`;
+  if(isYest) return `אתמול · ${time}`;
+  return d.toLocaleDateString('he-IL',{day:'2-digit',month:'2-digit',year:'2-digit'}) + ` · ${time}`;
+}
+
+function render(){
+  const list = getTx();
+  const balance = list.reduce((sum,t)=> sum + (t.type==='in'? t.amount : -t.amount), 0);
+  document.getElementById('balanceNum').textContent = formatMoney(balance);
+  document.getElementById('balanceNum').style.color = balance < 0 ? 'var(--red)' : 'var(--ink)';
+
+  if(list.length === 0){
+    document.getElementById('balanceSub').textContent = 'אין עדיין תנועות';
+    document.getElementById('txCount').textContent = '';
+  } else {
+    const totalIn = list.filter(t=>t.type==='in').reduce((s,t)=>s+t.amount,0);
+    const totalOut = list.filter(t=>t.type==='out').reduce((s,t)=>s+t.amount,0);
+    document.getElementById('balanceSub').textContent = `נכנס ₪${formatMoney(totalIn)} · יצא ₪${formatMoney(totalOut)}`;
+    document.getElementById('txCount').textContent = `${list.length} תנועות`;
+  }
+
+  const ledgerEl = document.getElementById('ledger');
+  if(list.length === 0){
+    ledgerEl.innerHTML = `<div class="empty-state"><div class="big">📒</div><p>עדיין אין תנועות רשומות.<br>הוסף קבלה או הוצאה כדי להתחיל.</p></div>`;
+    return;
+  }
+
+  const sorted = [...list].sort((a,b)=> new Date(b.date) - new Date(a.date));
+  ledgerEl.innerHTML = sorted.map(t=>{
+    const isIn = t.type === 'in';
+    return `
+      <div class="tx-row">
+        <div class="tx-dot ${t.type}">${isIn ? '↓' : '↑'}</div>
+        <div class="tx-info">
+          <div class="tx-note">${t.note ? escapeHtml(t.note) : (isIn ? 'קבלת מזומן' : 'הוצאת מזומן')}</div>
+          <div class="tx-date">${formatDate(t.date)}</div>
+        </div>
+        <div class="tx-amount ${t.type}">${isIn ? '+' : '−'}₪${formatMoney(t.amount)}</div>
+        <button class="tx-del" onclick="deleteTx('${t.id}')">✕</button>
+      </div>
+    `;
+  }).join('');
+}
+
+function escapeHtml(str){
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+function deleteTx(id){
+  if(!confirm('למחוק את התנועה הזו?')) return;
+  const list = getTx().filter(t => t.id !== id);
+  saveTx(list);
+  render();
+}
+
+function confirmResetAll(){
+  if(!confirm('לאפס את כל היומן? הפעולה אינה הפיכה.')) return;
+  if(!confirm('בטוח לגמרי? כל התנועות יימחקו.')) return;
+  saveTx([]);
+  render();
+}
+
+// ---------- SHEET / MODAL ----------
+function openSheet(type){
+  currentType = type;
+  document.getElementById('sheetTitle').textContent = type === 'in' ? 'קיבלתי מזומן' : 'שילמתי / הוצאתי';
+  document.getElementById('sheetTitle').className = type;
+  const confirmBtn = document.getElementById('confirmBtn');
+  confirmBtn.className = 'btn-confirm ' + type;
+  document.getElementById('amountInput').value = '';
+  document.getElementById('noteInput').value = '';
+
+  const quick = document.getElementById('quickAmounts');
+  const amounts = [50,100,200,500];
+  quick.innerHTML = amounts.map(a=>`<button type="button" onclick="setAmount(${a})">₪${a}</button>`).join('');
+
+  document.getElementById('overlay').classList.add('show');
+  setTimeout(()=> document.getElementById('amountInput').focus(), 200);
+}
+function setAmount(a){
+  document.getElementById('amountInput').value = a;
+}
+function closeSheet(){
+  document.getElementById('overlay').classList.remove('show');
+}
+document.getElementById('overlay').addEventListener('click', e=>{
+  if(e.target.id === 'overlay') closeSheet();
+});
+
+function submitTx(){
+  const amount = parseFloat(document.getElementById('amountInput').value);
+  const note = document.getElementById('noteInput').value.trim();
+  if(!amount || amount <= 0){
+    document.getElementById('amountInput').focus();
+    return;
+  }
+  const list = getTx();
+  list.push({
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2,6),
+    type: currentType,
+    amount: amount,
+    note: note,
+    date: new Date().toISOString()
+  });
+  saveTx(list);
+  closeSheet();
+  render();
+}
+document.getElementById('amountInput').addEventListener('keydown', e=>{
+  if(e.key === 'Enter') submitTx();
+});
+</script>
+</body>
+</html>
