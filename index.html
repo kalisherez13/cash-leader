@@ -13,10 +13,11 @@
     --ink:#4A3B3B;
     --ink-soft:#9B8180;
     --line:#EAD3CC;
-    --green:#C97B84;
-    --green-soft:#F7E5E5;
-    --red:#7A9285;
-    --red-soft:#E9EFE9;
+    --green:#5E9C76;
+    --green-soft:#E3F0E7;
+    --red:#C9575F;
+    --red-soft:#F8E1E2;
+    --rose:#C97B84;
     --gold:#C9A66B;
     --white:#FFFBF8;
   }
@@ -50,10 +51,10 @@
     font-size:16px;text-align:center;background:var(--white);color:var(--ink);
     font-family:'Roboto Mono',monospace;letter-spacing:2px;
   }
-  #lockScreen input:focus{outline:none;border-color:var(--green);}
+  #lockScreen input:focus{outline:none;border-color:var(--rose);}
   #lockScreen button{
     width:100%;margin-top:14px;padding:14px;border:none;border-radius:10px;
-    background:var(--green);color:var(--white);font-size:15px;font-weight:700;
+    background:var(--rose);color:var(--white);font-size:15px;font-weight:700;
     font-family:'Heebo',sans-serif;cursor:pointer;
   }
   #lockError{color:var(--red);font-size:12px;margin-top:10px;height:14px;}
@@ -93,7 +94,7 @@
   }
   .action-btn:active{transform:scale(.96);}
   .action-btn.in{background:var(--green);color:var(--white);}
-  .action-btn.out{background:var(--white);color:var(--red);border:1.5px solid var(--red-soft);box-shadow:inset 0 0 0 1px var(--red-soft);}
+  .action-btn.out{background:var(--red);color:var(--white);}
   .action-btn .icon{font-size:22px;}
 
   .ledger-header{
@@ -106,6 +107,28 @@
     margin:0 14px;background:var(--white);border-radius:16px;
     box-shadow:0 1px 3px rgba(0,0,0,.05);overflow:hidden;
   }
+  .month{
+    margin:0 14px 12px;background:var(--white);border-radius:16px;
+    box-shadow:0 1px 3px rgba(0,0,0,.05);overflow:hidden;
+  }
+  .month-head{
+    width:100%;border:none;background:none;cursor:pointer;text-align:right;
+    padding:14px 16px;font-family:'Heebo',sans-serif;color:var(--ink);
+    display:block;
+  }
+  .month-title{display:flex;justify-content:space-between;align-items:center;}
+  .month-name{font-size:16px;font-weight:700;}
+  .month-arrow{font-size:12px;color:var(--ink-soft);transition:transform .2s;}
+  .month.open .month-arrow{transform:rotate(180deg);}
+  .month-stats{display:flex;gap:8px;margin-top:10px;}
+  .stat{flex:1;border-radius:10px;padding:8px 6px;text-align:center;}
+  .stat .lbl{font-size:11px;font-weight:500;}
+  .stat .val{font-family:'Roboto Mono',monospace;font-weight:700;font-size:14px;direction:ltr;margin-top:2px;}
+  .stat.in{background:var(--green-soft);color:var(--green);}
+  .stat.out{background:var(--red-soft);color:var(--red);}
+  .stat.net{background:var(--paper);color:var(--ink);}
+  .month-body{display:none;border-top:1px solid var(--paper-dark);}
+  .month.open .month-body{display:block;}
   .empty-state{
     padding:50px 24px;text-align:center;color:var(--ink-soft);
   }
@@ -212,7 +235,7 @@
   </div>
 
   <div class="ledger-header">
-    <h2>תנועות אחרונות</h2>
+    <h2>לפי חודשים</h2>
     <span class="count" id="txCount"></span>
   </div>
 
@@ -223,7 +246,7 @@
     </div>
   </div>
 
-  <div id="buildTag">יומן קופה · גרסה 1.0</div>
+  <div id="buildTag">יומן קופה · גרסה 1.1</div>
 </div>
 
 <div class="overlay" id="overlay">
@@ -251,6 +274,8 @@ const PASSWORD = "orthoerez555";
 const STORAGE_KEY = "cashLedger_transactions_v1";
 const AUTH_KEY = "cashLedger_auth_v1";
 let currentType = "in";
+const openMonths = new Set();
+let monthsInit = false;
 
 // ---------- AUTH ----------
 function tryLogin(){
@@ -315,25 +340,67 @@ function render(){
 
   const ledgerEl = document.getElementById('ledger');
   if(list.length === 0){
+    ledgerEl.className = 'ledger';
     ledgerEl.innerHTML = `<div class="empty-state"><div class="big">📒</div><p>עדיין אין תנועות רשומות.<br>הוסף קבלה או הוצאה כדי להתחיל.</p></div>`;
     return;
   }
 
+  // group by month
   const sorted = [...list].sort((a,b)=> new Date(b.date) - new Date(a.date));
-  ledgerEl.innerHTML = sorted.map(t=>{
-    const isIn = t.type === 'in';
+  const groups = {};
+  sorted.forEach(t=>{
+    const d = new Date(t.date);
+    const key = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+    (groups[key] = groups[key] || []).push(t);
+  });
+  const now = new Date();
+  const currentKey = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
+  const keys = Object.keys(groups).sort().reverse();
+  if(!monthsInit){ openMonths.add(keys[0]); monthsInit = true; }
+
+  ledgerEl.className = '';
+  ledgerEl.innerHTML = keys.map(key=>{
+    const items = groups[key];
+    const [y,m] = key.split('-').map(Number);
+    let name = new Date(y, m-1, 1).toLocaleDateString('he-IL',{month:'long', year:'numeric'});
+    if(key === currentKey) name += ' · החודש';
+    const mIn = items.filter(t=>t.type==='in').reduce((s,t)=>s+t.amount,0);
+    const mOut = items.filter(t=>t.type==='out').reduce((s,t)=>s+t.amount,0);
+    const net = mIn - mOut;
+    const rows = items.map(t=>{
+      const isIn = t.type === 'in';
+      return `
+        <div class="tx-row">
+          <div class="tx-dot ${t.type}">${isIn ? '↓' : '↑'}</div>
+          <div class="tx-info">
+            <div class="tx-note">${t.note ? escapeHtml(t.note) : (isIn ? 'קבלת מזומן' : 'הוצאת מזומן')}</div>
+            <div class="tx-date">${formatDate(t.date)}</div>
+          </div>
+          <div class="tx-amount ${t.type}">${isIn ? '+' : '−'}₪${formatMoney(t.amount)}</div>
+          <button class="tx-del" onclick="deleteTx('${t.id}')">✕</button>
+        </div>`;
+    }).join('');
     return `
-      <div class="tx-row">
-        <div class="tx-dot ${t.type}">${isIn ? '↓' : '↑'}</div>
-        <div class="tx-info">
-          <div class="tx-note">${t.note ? escapeHtml(t.note) : (isIn ? 'קבלת מזומן' : 'הוצאת מזומן')}</div>
-          <div class="tx-date">${formatDate(t.date)}</div>
-        </div>
-        <div class="tx-amount ${t.type}">${isIn ? '+' : '−'}₪${formatMoney(t.amount)}</div>
-        <button class="tx-del" onclick="deleteTx('${t.id}')">✕</button>
-      </div>
-    `;
+      <div class="month ${openMonths.has(key)?'open':''}">
+        <button class="month-head" onclick="toggleMonth('${key}')">
+          <div class="month-title">
+            <span class="month-name">${name}</span>
+            <span class="month-arrow">▼</span>
+          </div>
+          <div class="month-stats">
+            <div class="stat in"><div class="lbl">נכנס</div><div class="val">₪${formatMoney(mIn)}</div></div>
+            <div class="stat out"><div class="lbl">יצא</div><div class="val">₪${formatMoney(mOut)}</div></div>
+            <div class="stat net"><div class="lbl">נטו</div><div class="val">${net<0?'−':''}₪${formatMoney(net)}</div></div>
+          </div>
+        </button>
+        <div class="month-body">${rows}</div>
+      </div>`;
   }).join('');
+}
+
+function toggleMonth(key){
+  if(openMonths.has(key)) openMonths.delete(key); else openMonths.add(key);
+  render();
 }
 
 function escapeHtml(str){
